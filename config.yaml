@@ -1,0 +1,75 @@
+# studio-hunter — single source of truth for search criteria and per-source
+# settings. See README.md for setup and ADAPTING.md for how to change this
+# for your own search.
+#
+# This is a TEMPLATE. Every value under `criteria` is an example — replace it.
+# Anything marked PLACEHOLDER_FILL_IN_* needs you to visit Kleinanzeigen, run
+# its search UI, and paste the resulting URL here. Placeholder URLs are
+# skipped cleanly at runtime rather than erroring.
+
+criteria:
+  # Fields below are passed verbatim (as JSON) to the semantic filter, so you
+  # can add your own keys (e.g. `pets_allowed: true`) and the model will see
+  # them. Only the keys marked "prefilter" are also enforced by code.
+  size_m2:                       # prefilter: rejects only if < 0.5*min or > 2*max
+    min: 20
+    max: 80
+  price_eur_max: 1500            # prefilter: rejects only if > 1.5*cap
+  price_flex_note: >
+    Flexible on warm vs. cold rent, and somewhat flexible above the cap if the
+    space is otherwise a strong fit. This nuance is left to the semantic
+    filter, not the keyword prefilter.
+  districts:                     # prefilter + notification tiering
+    primary: [DistrictA, DistrictB]
+    fallback: [DistrictC, DistrictD]
+    # Fallback districts are fetched and stored but suppressed from
+    # notifications. Flip to true, or pass --include-adjacent, to surface them.
+    fallback_enabled: false
+  heating_required: true
+  access_24_7_required: false
+  lease_types_accepted:
+    - Gewerbemietvertrag
+    - Untermiete
+  hard_exclude_keywords:         # prefilter: case-insensitive substring match
+    - "nur tagsüber"
+    - "stundenweise"
+  context_notes: >
+    Describe who you are and what you need, in plain language. Example: "Two
+    freelance designers looking for a shared studio in Berlin. Quiet use only.
+    Missing or unstated details (no listed price, no mention of heating) should
+    NOT disqualify a listing; flag it as 'maybe, check manually' instead,
+    since informal listings under-specify."
+
+filter:
+  # Batched classification that runs many times a day, so a small model keeps
+  # cost down. Use a stronger model if ambiguous listings are being misjudged.
+  claude_model: claude-haiku-4-5
+
+storage:
+  db_path: data/listings.db
+
+logging:
+  log_file: data/studio-hunter.log
+  max_bytes: 5000000
+  backup_count: 5
+
+notify:
+  telegram:
+    enabled: true
+
+sources:
+  kleinanzeigen:
+    enabled: true
+    poll_interval_hours: 3
+    # Build each URL by hand: open kleinanzeigen.de, pick the category, set the
+    # location, sort by newest, and copy the resulting URL. IMPORTANT: use the
+    # bare location ID form (c<category>l<location-id>, e.g. c277l3386), never
+    # a district name as its own path segment. Kleinanzeigen treats that
+    # segment as a required free-text keyword on top of the location filter and
+    # silently drops real listings that don't contain the literal word.
+    # One search per district is the simplest way to keep results exact.
+    search_urls:
+      - name: "Example: Gewerbeimmobilien DistrictA"
+        url: "PLACEHOLDER_FILL_IN_KLEINANZEIGEN_DISTRICT_A"
+      - name: "Example: Gewerbeimmobilien DistrictB"
+        url: "PLACEHOLDER_FILL_IN_KLEINANZEIGEN_DISTRICT_B"

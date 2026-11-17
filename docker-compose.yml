@@ -1,0 +1,8 @@
+services:
+  studio-hunter:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped

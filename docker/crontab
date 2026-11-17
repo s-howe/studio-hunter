@@ -1,0 +1,33 @@
+# cron runs jobs with a minimal, explicitly-declared environment — it does
+# NOT inherit the container's Docker-level ENV vars (those only apply to
+# the main process / `docker exec` sessions). Both of the following bit us
+# as a result, in separate incidents:
+#
+# PATH: `pip install uv` puts the binary in /usr/local/bin, which cron's
+# default PATH (/usr/bin:/bin) never looks at.
+#
+# PLAYWRIGHT_BROWSERS_PATH: the playwright/python base image bakes browser
+# binaries into /ms-playwright and sets this env var so the `playwright`
+# package finds them there instead of its default ~/.cache/ms-playwright
+# (which is empty in this image). Confirmed live: cron jobs without this
+# set explicitly get "Executable doesn't exist at /root/.cache/ms-playwright/..."
+# even though `docker exec` sessions see the var fine and everything works
+# when run interactively.
+PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# studio-hunter scheduled run. main.py tracks its own per-source due state
+# in SQLite, so it's safe (and intended) to invoke this frequently — it's a
+# no-op fetch for any source that isn't due yet.
+#
+# main.py logs to data/studio-hunter.log itself (rotating, see config.yaml
+# "logging" block) — that file lives in the mounted ./data volume, so it
+# persists across restarts. The redirect below only catches crashes that
+# happen before the app's own logging is configured (e.g. a syntax error).
+#
+# --frozen: without it, `uv run` can silently re-resolve dependencies at
+# runtime against pyproject.toml instead of using exactly what's baked into
+# the image at build time. Bit us once already — playwright drifted past
+# the version the base image's browser binaries match, breaking every fetch
+# with "Executable doesn't exist" days after a build that worked fine.
+*/15 * * * * cd /app && uv run --frozen python main.py >> /var/log/studio-hunter-crash.log 2>&1
